@@ -1,37 +1,25 @@
-import websocket, time, binascii, struct
-
-
-def on_open(ws):
-	print("# Connected")
-
-
-def on_close(ws):
-	print("# Disconnected")
-
-
-def on_error(ws, error):
-	print(error)
-
-
-def on_message(ws, packet):
-	length = struct.unpack(">i", packet[:4])[0]
-	header = struct.unpack(">h", packet[4:6])[0]
-
-	body = binascii.hexlify(packet[6:]) if len(packet) > 6 else b""
-
-	print(length, header, body)
+from g_python.hpacket import HPacket
+import socket, binascii
 
 
 def main():
-	habbo_websocket = "wss://game-es.habbo.com:30001/websocket"
-	ws = websocket.WebSocketApp(habbo_websocket,
-								on_open=on_open,
-								on_message=on_message,
-								on_error=on_error,
-								on_close=on_close)
+    client_socket = socket.socket()
+    client_socket.connect(("game-es.habbo.com", 30000))
 
-	ws.run_forever()
+    # {ClientHello}{s:"WIN63-202104221206-601649277"}{s:"FLASH3"}{i:1}{i:0}
+    start = HPacket(4000, "WIN63-202104221206-601649277", "FLASH3", 1, 0)
+    diffie = HPacket(2329)
+
+    client_socket.send(bytes(start))
+    client_socket.send(bytes(diffie))
+
+    data = client_socket.recv(1024)
+    if len(data) > 0:
+        print(binascii.b2a_hex(data))
+        client_socket.send(bytes(HPacket(2346)))
+
+    client_socket.close()
 
 
-if __name__ == "__main__":
-	main()
+if __name__ == '__main__':
+    main()
