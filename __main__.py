@@ -1,5 +1,5 @@
 from g_python.hpacket import HPacket
-import socket, binascii, requests, struct
+import socket, binascii, requests, struct, os
 
 luftbb = requests.get("https://api.harble.net/messages/latest.json").json()
 version = luftbb["Revision"]
@@ -49,13 +49,20 @@ def main():
 	sck.send(bytes(diffie))
 
 	data = sck.recv(1024)
+	
+	if len(data) > 0:
+		print(get_header(data), data[6:])
+		
+		if get_header(data) == "InitDiffieHandshake":
+			A, g = extract_diffie(data)
+			N = int.from_bytes(os.urandom(256), "big")
 
-	if len(data) > 0 and get_header(data) == "InitDiffieHandshake":
-		A, g = extract_diffie(data)
-		print(A)
-		print(g)
+			print("N", N)
 
-		#sck.send(bytes(HPacket(2346)))
+			# B = ??????
+
+			#d_resp = HPacket(find_id("CompleteDiffieHandshake", "Outgoing"), B)
+			#sck.send(bytes(d_resp))				
 
 	sck.close()
 
