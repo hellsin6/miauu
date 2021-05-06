@@ -1,32 +1,63 @@
 from g_python.hpacket import HPacket
-import socket, binascii, requests
+import socket, binascii, requests, struct
 
 luftbb = requests.get("https://api.harble.net/messages/latest.json").json()
-latest_version = luftbb["Revision"]
+version = luftbb["Revision"]
 
 
 def find_id(msg, type):
 	for x in luftbb[type]:
 		if x["Name"] == msg:
 			return x["Id"]
+	return None
+
+
+def find_name(msg, type):
+	for x in luftbb[type]:
+		if x["Id"] == msg:
+			return x["Name"]
+	return None
+
+
+def get_header(packet):
+	header_id = struct.unpack(">h", packet[4:6])[0]
+	return find_name(header_id, "Incoming")
+
+
+def extract_diffie(packet):
+	pointer = 6
+	len_A = struct.unpack(">h", packet[pointer:pointer+2])[0]
+	pointer += 2
+	A = packet[pointer:pointer+len_A]
+
+	pointer += len_A
+	len_g = struct.unpack(">h", packet[pointer:pointer+2])[0]
+	pointer += 2
+	g = packet[pointer:pointer+len_g]
+
+	return int(A, 16), int(g, 16)
 
 
 def main():
-	client_socket = socket.socket()
-	client_socket.connect(("game-es.habbo.com", 30000))
+	sck = socket.socket()
+	sck.connect(("game-es.habbo.com", 30000))
 
-	start = HPacket(find_id("ClientHello", "Outgoing"), latest_version, "FLASH3", 1, 0)
+	start = HPacket(find_id("ClientHello", "Outgoing"), version, "FLASH3", 1, 0)
 	diffie = HPacket(find_id("InitDiffieHandshake", "Outgoing"))
 
-	client_socket.send(bytes(start))
-	client_socket.send(bytes(diffie))
+	sck.send(bytes(start))
+	sck.send(bytes(diffie))
 
-	data = client_socket.recv(1024)
-	if len(data) > 0:
-		print(binascii.b2a_hex(data))
-		client_socket.send(bytes(HPacket(2346)))
+	data = sck.recv(1024)
 
-	client_socket.close()
+	if len(data) > 0 and get_header(data) == "InitDiffieHandshake":
+		A, g = extract_diffie(data)
+		print(A)
+		print(g)
+
+		#sck.send(bytes(HPacket(2346)))
+
+	sck.close()
 
 
 if __name__ == '__main__':
