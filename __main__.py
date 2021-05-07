@@ -48,21 +48,25 @@ def main():
 	sck.send(bytes(start))
 	sck.send(bytes(diffie))
 
-	data = sck.recv(1024)
 	
-	if len(data) > 0:
-		print(get_header(data), data[6:])
+	while True:
+		data = sck.recv(1024)
+
+		if len(data) > 0:
+			print(get_header(data), data[6:])
 		
-		if get_header(data) == "InitDiffieHandshake":
-			A, g = extract_diffie(data)
-			N = int.from_bytes(os.urandom(256), "big")
+			if get_header(data) == "ErrorReport":
+				sck.close()
+				exit()
+			
+			if get_header(data) == "InitDiffieHandshake":
+				A, g = extract_diffie(data)
+				N = int.from_bytes(os.urandom(256), "big")
 
-			print("N", N)
+				B = hex(pow(A, N, g))[2:]
 
-			# B = ??????
-
-			#d_resp = HPacket(find_id("CompleteDiffieHandshake", "Outgoing"), B)
-			#sck.send(bytes(d_resp))				
+				d_resp = HPacket(find_id("CompleteDiffieHandshake", "Outgoing"), B)
+				sck.send(bytes(d_resp))
 
 	sck.close()
 
